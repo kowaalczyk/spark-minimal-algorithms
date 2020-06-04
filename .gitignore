@@ -141,3 +141,4 @@ cython_debug/
 # Custom
 .vscode
 .idea
+*.tgz
