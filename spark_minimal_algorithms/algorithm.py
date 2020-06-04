@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod, abstractstaticmethod
+from abc import ABC, abstractmethod
 from typing import Any, Optional, Iterable, Type, List, Tuple, Dict
 
 from pyspark import SparkContext, RDD

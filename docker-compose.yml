@@ -1,0 +1,10 @@
+version: '3'
+
+services:
+    test:
+      build: .
+      command: "poetry run pytest"
+
+    lint:
+      build: .
+      command: "poetry run flake8"

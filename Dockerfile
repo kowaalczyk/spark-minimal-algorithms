@@ -15,20 +15,23 @@ RUN apt install -y scala
 COPY ./spark-2.4.5-bin-hadoop2.7.tgz /usr/src/spark/spark-2.4.5-bin-hadoop2.7.tgz
 RUN tar -xzf /usr/src/spark/spark-2.4.5-bin-hadoop2.7.tgz -C /usr/src/spark
 RUN rm /usr/src/spark/spark-2.4.5-bin-hadoop2.7.tgz
+ENV SPARK_HOME="/usr/src/spark/spark-2.4.5-bin-hadoop2.7"
+
+# work in the project directory from now on
+WORKDIR "/usr/src/spark-minimal-algorithms"
 
 # install & configure poetry
 RUN pip install poetry
 RUN poetry config virtualenvs.create false
 
-ENV SPARK_HOME="/usr/src/spark/spark-2.4.5-bin-hadoop2.7"
+# copy poetry settings and install dependencies
+ADD pyproject.toml poetry.lock /usr/src/spark-minimal-algorithms/
+RUN poetry install --no-interaction --no-ansi
 
-# copy the project to a working directory
-ADD .flake8 .gitignore mypy.ini pyproject.toml README.md /usr/src/spark-minimal-algorithms/
+# add project source code and tests
+ADD .flake8 .gitignore mypy.ini README.md /usr/src/spark-minimal-algorithms/
 ADD tests /usr/src/spark-minimal-algorithms/tests
 ADD spark_minimal_algorithms /usr/src/spark-minimal-algorithms/spark_minimal_algorithms
-WORKDIR "/usr/src/spark-minimal-algorithms"
-
-RUN poetry install
 
 # configure necessary environment variables for pyspark
 ENV PYTHONPATH="${SPARK_HOME}/python:$PYTHONPATH"
