@@ -1,8 +1,7 @@
-import findspark
-
-findspark.init()
+from typing import Dict, List, Tuple, Any
 
 import pytest
+from pyspark import SparkContext, RDD
 
 from spark_minimal_algorithms.algorithm import Step, Algorithm
 from spark_minimal_algorithms.examples.countifs import (
@@ -101,9 +100,9 @@ TESTS_1D = [
 ]
 
 
-@pytest.mark.parametrize("n_partitions", [1, 2, 4])
-@pytest.mark.parametrize("test_case", TESTS_1D)
-def test_algorithm_execution_1d(spark_context, n_partitions, test_case):
+def prepare_test_case(
+    spark_context: SparkContext, test_case: Dict[str, List[Any]]
+) -> Tuple[RDD, RDD, List[Any]]:
     data_rdd = spark_context.parallelize(
         enumerate(
             map(lambda p: p if isinstance(p, tuple) else (p,), test_case["data_points"])
@@ -117,11 +116,18 @@ def test_algorithm_execution_1d(spark_context, n_partitions, test_case):
             )
         )
     )
-    countifs = Countifs(spark_context, n_partitions)
+    return data_rdd, query_rdd, test_case["expected_result"]
 
+
+@pytest.mark.parametrize("n_partitions", [1, 2, 4])
+@pytest.mark.parametrize("test_case", TESTS_1D)
+def test_algorithm_execution_1d(spark_context, n_partitions, test_case):
+    data_rdd, query_rdd, expected_result = prepare_test_case(spark_context, test_case)
+
+    countifs = Countifs(spark_context, n_partitions)
     result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=1).collect()
 
-    assert result == test_case["expected_result"]
+    assert result == expected_result
 
 
 TESTS_2D = [
@@ -156,21 +162,29 @@ TESTS_2D = [
 @pytest.mark.parametrize("n_partitions", [1, 2, 4])
 @pytest.mark.parametrize("test_case", TESTS_2D)
 def test_algorithm_execution_2d(spark_context, n_partitions, test_case):
-    data_rdd = spark_context.parallelize(
-        enumerate(
-            map(lambda p: p if isinstance(p, tuple) else (p,), test_case["data_points"])
-        )
-    )
-    query_rdd = spark_context.parallelize(
-        enumerate(
-            map(
-                lambda p: p if isinstance(p, tuple) else (p,),
-                sorted(test_case["query_points"]),
-            )
-        )
-    )
-    countifs = Countifs(spark_context, n_partitions)
+    data_rdd, query_rdd, expected_result = prepare_test_case(spark_context, test_case)
 
+    countifs = Countifs(spark_context, n_partitions)
     result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=2).collect()
 
-    assert result == test_case["expected_result"]
+    assert result == expected_result
+
+
+TESTS_3D = [
+    {
+        "query_points": [(100, 100, 100), (102, 102, 102)],
+        "data_points": [(2137, 103, 480), (105, 2137, 1771), (1178, 101, 2137), (2137, 1243, 107)],
+        "expected_result": [(0, 4), (1, 3)],
+    }
+]
+
+
+@pytest.mark.parametrize("n_partitions", [1, 2, 4])
+@pytest.mark.parametrize("test_case", TESTS_3D)
+def test_algorithm_execution_3d(spark_context, n_partitions, test_case):
+    data_rdd, query_rdd, expected_result = prepare_test_case(spark_context, test_case)
+
+    countifs = Countifs(spark_context, n_partitions)
+    result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=3).collect()
+
+    assert result == expected_result
