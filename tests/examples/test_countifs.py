@@ -173,7 +173,12 @@ def test_algorithm_execution_2d(spark_context, n_partitions, test_case):
 TESTS_3D = [
     {
         "query_points": [(100, 100, 100), (102, 102, 102)],
-        "data_points": [(2137, 103, 480), (105, 2137, 1771), (1178, 101, 2137), (2137, 1243, 107)],
+        "data_points": [
+            (2137, 103, 480),
+            (105, 2137, 1771),
+            (1178, 101, 2137),
+            (2137, 1243, 107),
+        ],
         "expected_result": [(0, 4), (1, 3)],
     }
 ]

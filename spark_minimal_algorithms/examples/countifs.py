@@ -84,7 +84,7 @@ class CountifsInitialStep(Step):
         }
 
     @staticmethod
-    def step(
+    def step(  # type: ignore
         group_key: int, group_items: Iterable[Any], broadcast: Broadcast
     ) -> Iterable[Any]:
         prefix_counts: List[int] = broadcast.value["partition_prefix_count"]
@@ -130,7 +130,7 @@ class CountifsNextStep(Step):
         return coords[0], type_info[0]
 
     @staticmethod
-    def step(
+    def step(  # type: ignore
         group_key: Union[str, Tuple[str, ...]],
         group_items: Iterable[Any],
         broadcast: Broadcast,
@@ -175,7 +175,7 @@ class CountifsResultsForLabel(Step):
     """
 
     @staticmethod
-    def step(
+    def step(  # type: ignore
         group_key: Union[str, Tuple[str, ...]],
         group_items: Iterable[Any],
         broadcast: Broadcast,
@@ -199,9 +199,7 @@ class CountifsResultsForQuery(Step):
     """
 
     @staticmethod
-    def step(
-        group_key: int, group_items: Iterable[int], broadcast: Broadcast
-    ) -> Iterable[Tuple[int, int]]:
+    def step(group_key: int, group_items: Iterable[int], broadcast: Broadcast) -> Iterable[Tuple[int, int]]:  # type: ignore
         yield group_key, sum(group_items)
 
 
@@ -229,10 +227,8 @@ class Countifs(Algorithm):
         "results_for_query": CountifsResultsForQuery,
     }
 
-    def run(self, data_rdd: RDD, query_rdd: RDD, n_dim: int) -> RDD:
-        empty_result_rdd = query_rdd.map(
-            lambda idx_coords: (idx_coords[0], 0)
-        )
+    def run(self, data_rdd: RDD, query_rdd: RDD, n_dim: int) -> RDD:  # type: ignore
+        empty_result_rdd = query_rdd.map(lambda idx_coords: (idx_coords[0], 0))
 
         data_rdd = data_rdd.map(
             lambda idx_coords: (idx_coords[1], (DATA, idx_coords[0]))
@@ -242,10 +238,10 @@ class Countifs(Algorithm):
         )
         rdd = data_rdd.union(query_rdd)
 
-        rdd = self.first_step(rdd)
+        rdd = self.first_step(rdd)  # type: ignore
         for _ in range(n_dim - 1):
-            rdd = self.next_step(rdd)
+            rdd = self.next_step(rdd)  # type: ignore
 
-        rdd = empty_result_rdd.union(self.results_for_label(rdd))
-        rdd = self.results_for_query(rdd).sortByKey()
+        rdd = empty_result_rdd.union(self.results_for_label(rdd))  # type: ignore
+        rdd = self.results_for_query(rdd).sortByKey()  # type: ignore
         return rdd
