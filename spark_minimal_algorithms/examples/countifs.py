@@ -230,6 +230,10 @@ class Countifs(Algorithm):
     }
 
     def run(self, data_rdd: RDD, query_rdd: RDD, n_dim: int) -> RDD:
+        empty_result_rdd = query_rdd.map(
+            lambda idx_coords: (idx_coords[0], 0)
+        )
+
         data_rdd = data_rdd.map(
             lambda idx_coords: (idx_coords[1], (DATA, idx_coords[0]))
         )
@@ -242,6 +246,6 @@ class Countifs(Algorithm):
         for _ in range(n_dim - 1):
             rdd = self.next_step(rdd)
 
-        rdd = self.results_for_label(rdd)
+        rdd = empty_result_rdd.union(self.results_for_label(rdd))
         rdd = self.results_for_query(rdd).sortByKey()
         return rdd

@@ -24,6 +24,8 @@ WORKDIR "/usr/src/spark-minimal-algorithms"
 RUN pip install poetry
 RUN poetry config virtualenvs.create false
 
+# todo: separate poetry + pyspark image to improve build speed (spark will not be in docker context)
+
 # copy poetry settings and install dependencies
 ADD pyproject.toml poetry.lock /usr/src/spark-minimal-algorithms/
 RUN poetry install --no-interaction --no-ansi

@@ -55,7 +55,7 @@ def test_algorithm_creation(spark_context, n_partitions):
     assert instance.results_for_query._n_partitions == n_partitions
 
 
-tests_1d = [
+TESTS_1D = [
     {
         "query_points": [1, 4, 5, 6, 7, 8, 11, 13, 14, 17],
         "data_points": [2, 3, 9, 10, 12, 15, 16, 18, 19, 20],
@@ -102,7 +102,7 @@ tests_1d = [
 
 
 @pytest.mark.parametrize("n_partitions", [1, 2, 4])
-@pytest.mark.parametrize("test_case", tests_1d)
+@pytest.mark.parametrize("test_case", TESTS_1D)
 def test_algorithm_execution_1d(spark_context, n_partitions, test_case):
     data_rdd = spark_context.parallelize(
         enumerate(
@@ -120,5 +120,57 @@ def test_algorithm_execution_1d(spark_context, n_partitions, test_case):
     countifs = Countifs(spark_context, n_partitions)
 
     result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=1).collect()
+
+    assert result == test_case["expected_result"]
+
+
+TESTS_2D = [
+    {
+        "data_points": [(3, 6), (4, 2)],
+        "query_points": [(0, 5), (7, 1)],
+        "expected_result": [(0, 1), (1, 0)],
+    },
+    {
+        "query_points": [(0, 5), (7, 1)],
+        "data_points": [(3, 6), (4, 2)],
+        "expected_result": [(0, 1), (1, 0)],
+    },
+    {
+        "query_points": [(100, 100), (102, 102)],
+        "data_points": [(103, 480), (1178, 101)],
+        "expected_result": [(0, 2), (1, 1)],
+    },
+    {
+        "query_points": [(100, 100), (102, 102), (104, 104), (106, 106)],
+        "data_points": [(1178, 101), (103, 480), (105, 1771), (1243, 107)],
+        "expected_result": [(0, 4), (1, 3), (2, 2), (3, 1)],
+    },
+    {
+        "query_points": [(100, 100), (102, 102)],
+        "data_points": [(103, 480), (105, 1771), (1178, 101), (1243, 107)],
+        "expected_result": [(0, 4), (1, 3)],
+    },
+]
+
+
+@pytest.mark.parametrize("n_partitions", [1, 2, 4])
+@pytest.mark.parametrize("test_case", TESTS_2D)
+def test_algorithm_execution_2d(spark_context, n_partitions, test_case):
+    data_rdd = spark_context.parallelize(
+        enumerate(
+            map(lambda p: p if isinstance(p, tuple) else (p,), test_case["data_points"])
+        )
+    )
+    query_rdd = spark_context.parallelize(
+        enumerate(
+            map(
+                lambda p: p if isinstance(p, tuple) else (p,),
+                sorted(test_case["query_points"]),
+            )
+        )
+    )
+    countifs = Countifs(spark_context, n_partitions)
+
+    result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=2).collect()
 
     assert result == test_case["expected_result"]
