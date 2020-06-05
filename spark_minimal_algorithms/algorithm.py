@@ -84,26 +84,3 @@ class Algorithm(ABC):
 
         rdd = self.run(**kwargs)
         return rdd
-
-
-# iteration: gropuby, emit from group, aggregate and broadcast emitted values, map groups
-# first round:
-#   groupby: partition
-#   emit: count per partition
-#   aggregate and broadcast: prefix count per partition
-#   map: partition -> labels for elements in partition
-# next round:
-#   groupby: label
-#   emit: nothing
-#   aggregate and broadcast: nothing
-#   map: label group -> sort points, emit new labels
-# summarize results 1:
-#   groupby: label
-#   emit: nothing
-#   aggregate and broadcast: nothing
-#   map: label group -> counts for query points in group
-# summarize results 1:
-#   groupby: query point
-#   emit: nothing
-#   aggregate and broadcast: nothing
-#   map: sum values for query point
