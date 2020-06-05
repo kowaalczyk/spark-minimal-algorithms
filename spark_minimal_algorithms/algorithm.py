@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, abstractstaticmethod
 from typing import Any, Optional, Iterable, Type, List, Tuple, Dict
 
 from pyspark import SparkContext, RDD
@@ -23,8 +23,10 @@ class Step(ABC):
     def broadcast(emitted_items: List[Any]) -> Optional[Any]:
         return None
 
-    @abstractmethod
-    def step(self, group_key: Any, group_items: Iterable[Any]) -> Iterable[Any]:
+    @abstractstaticmethod
+    def step(
+        group_key: Any, group_items: Iterable[Any], broadcast: Broadcast
+    ) -> Iterable[Any]:
         pass
 
     def __call__(self, rdd: RDD) -> RDD:
@@ -46,11 +48,11 @@ class Step(ABC):
 
         emitted = list(rdd.map(unwrap_emit).collect())
         to_broadcast = step_cls.broadcast(emitted)
-        self.broadcast_: Broadcast = self._sc.broadcast(to_broadcast)
+        broadcast: Broadcast = self._sc.broadcast(to_broadcast)
 
         def unwrap_step(kv: Tuple[Any, Iterable[Any]]) -> Iterable[Any]:
             k, v = kv
-            for new_v in self.step(k, v):
+            for new_v in step_cls.step(k, v, broadcast):
                 yield new_v
 
         rdd = rdd.flatMap(unwrap_step)
@@ -75,6 +77,7 @@ class Algorithm(ABC):
         pass
 
     def __call__(self, **kwargs: Dict[str, Any]) -> RDD:
+        # todo: add support for positional arguments
         for arg_name, arg in kwargs.items():
             if isinstance(arg, RDD) and arg.getNumPartitions() != self._n_partitions:
                 kwargs[arg_name] = arg.repartition(self._n_partitions)

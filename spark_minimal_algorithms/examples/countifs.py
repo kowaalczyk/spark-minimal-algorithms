@@ -1,20 +1,14 @@
 from typing import Dict, Any, Iterable, Optional, List, Tuple, Union
 import math
-from enum import IntEnum
 
-from pyspark import RDD
+from pyspark import RDD, Broadcast
 
 from spark_minimal_algorithms.algorithm import Step, Algorithm
 
 
-class PointType(IntEnum):
-    """
-    Represents a type of point (query or data).
-    IntEnum is used to ensure correct sorting order (data before query).
-    """
-
-    DATA = 0
-    QUERY = 1
+# NOTE: IntEnum cannot be used, as unpickling would require entire project to be installed on compute nodes
+DATA = 0
+QUERY = 1
 
 
 def _get_format_str(n_elements: int) -> str:
@@ -38,28 +32,31 @@ class CountifsInitialStep(Step):
     """
 
     @staticmethod
+    def select_key(coords_typeinfo: Any) -> Any:
+        coords, type_info = coords_typeinfo
+        t, order_for_t = type_info
+        return (coords[0], t), (coords[1:], order_for_t)
+
+    @staticmethod
+    def unselect_key(selected_key_and_rest: Any) -> Any:
+        selected_key, rest = selected_key_and_rest
+        coord_0, t = selected_key
+        other_coords, order_for_t = rest
+        return (coord_0, other_coords, (t, order_for_t))
+
+    @staticmethod
+    def extract_partition_idx(
+        idx: int, points: Iterable[Any]
+    ) -> Iterable[Tuple[int, Any]]:
+        for point in points:
+            yield idx, point
+
+    @staticmethod
     def group(rdd: RDD) -> RDD:
-        def select_key(coords_typeinfo: Any) -> Any:
-            coords, type_info = coords_typeinfo
-            t, order_for_t = type_info
-            return (coords[0], t), (coords[1:], order_for_t)
-
-        def unselect_key(selected_key_and_rest: Any) -> Any:
-            selected_key, rest = selected_key_and_rest
-            coord_0, t = selected_key
-            other_coords, order_for_t = rest
-            return (coord_0, other_coords, (t, order_for_t))
-
         # sort by values - todo: consider using custom terasort implementation
-        rdd = rdd.map(select_key).sortByKey().map(unselect_key)
-
-        def extract_partition_idx(
-            idx: int, points: Iterable[Any]
-        ) -> Iterable[Tuple[int, Any]]:
-            for point in points:
-                yield idx, points
-
-        rdd = rdd.mapPartitionsWithIndex(extract_partition_idx)
+        cls = CountifsInitialStep
+        rdd = rdd.map(cls.select_key).sortByKey().map(cls.unselect_key)
+        rdd = rdd.mapPartitionsWithIndex(cls.extract_partition_idx).groupByKey()
         return rdd
 
     @staticmethod
@@ -86,18 +83,21 @@ class CountifsInitialStep(Step):
             "label_format_str": label_format_str,
         }
 
-    def step(self, group_key: int, group_items: Iterable[Any]) -> Iterable[Any]:
-        prefix_counts: List[int] = self.broadcast_.value["partition_prefix_count"]
+    @staticmethod
+    def step(
+        group_key: int, group_items: Iterable[Any], broadcast: Broadcast
+    ) -> Iterable[Any]:
+        prefix_counts: List[int] = broadcast.value["partition_prefix_count"]
         partition_prefix_count: int = prefix_counts[group_key]
 
-        label_format_str: str = self.broadcast_.value["label_format_str"]
+        label_format_str: str = broadcast.value["label_format_str"]
 
         for idx, point in enumerate(group_items):
             coord_0, coords, type_info = point
             t, _ = type_info
 
             label = label_format_str.format(partition_prefix_count + idx)
-            if t == PointType.DATA:
+            if t == DATA:
                 for prefix_len in range(len(label)):
                     if label[prefix_len] == "1":
                         if len(coords) > 0:
@@ -105,7 +105,7 @@ class CountifsInitialStep(Step):
                         else:
                             yield label[:prefix_len], type_info
 
-            elif t == PointType.QUERY:
+            elif t == QUERY:
                 for prefix_len in range(len(label)):
                     if label[prefix_len] == "0":
                         if len(coords) > 0:
@@ -124,14 +124,18 @@ class CountifsNextStep(Step):
 
     """
 
-    def step(
-        self, group_key: Union[str, Tuple[str, ...]], group_items: Iterable[Any]
-    ) -> Iterable[Any]:
-        def first_coord_and_point_type(point: Any) -> Any:
-            coords, type_info = point
-            return coords[0], type_info[0]
+    @staticmethod
+    def first_coord_and_point_type(point: Any) -> Any:
+        coords, type_info = point
+        return coords[0], type_info[0]
 
-        points = sorted(group_items, key=first_coord_and_point_type)
+    @staticmethod
+    def step(
+        group_key: Union[str, Tuple[str, ...]],
+        group_items: Iterable[Any],
+        broadcast: Broadcast,
+    ) -> Iterable[Any]:
+        points = sorted(group_items, key=CountifsNextStep.first_coord_and_point_type)
         label_format_str = _get_format_str(len(points))
         old_label = group_key
 
@@ -139,7 +143,7 @@ class CountifsNextStep(Step):
             new_label = label_format_str.format(idx)
 
             t, _ = type_info
-            if t == PointType.DATA:
+            if t == DATA:
                 for prefix_len in range(len(new_label)):
                     if new_label[prefix_len] == "1":
                         if len(coords) > 1:
@@ -150,7 +154,7 @@ class CountifsNextStep(Step):
                         else:
                             yield (old_label, new_label[:prefix_len]), type_info
 
-            elif t == PointType.QUERY:
+            elif t == QUERY:
                 for prefix_len in range(len(new_label)):
                     if new_label[prefix_len] == "0":
                         if len(coords) > 1:
@@ -170,15 +174,18 @@ class CountifsResultsForLabel(Step):
 
     """
 
+    @staticmethod
     def step(
-        self, group_key: Union[str, Tuple[str, ...]], group_items: Iterable[Any]
+        group_key: Union[str, Tuple[str, ...]],
+        group_items: Iterable[Any],
+        broadcast: Broadcast,
     ) -> Iterable[Any]:
         points = list(group_items)
 
-        data_points = set(p[1] for p in points if p[0] == PointType.DATA)
+        data_points = set(p[1] for p in points if p[0] == DATA)
         n_data_points = len(data_points)
 
-        query_points = set(p[1] for p in points if p[0] == PointType.QUERY)
+        query_points = set(p[1] for p in points if p[0] == QUERY)
         for query_point_idx in query_points:
             yield query_point_idx, n_data_points
 
@@ -191,8 +198,9 @@ class CountifsResultsForQuery(Step):
 
     """
 
+    @staticmethod
     def step(
-        self, group_key: int, group_items: Iterable[int]
+        group_key: int, group_items: Iterable[int], broadcast: Broadcast
     ) -> Iterable[Tuple[int, int]]:
         yield group_key, sum(group_items)
 
@@ -223,10 +231,10 @@ class Countifs(Algorithm):
 
     def run(self, data_rdd: RDD, query_rdd: RDD, n_dim: int) -> RDD:
         data_rdd = data_rdd.map(
-            lambda idx_coords: (idx_coords[1], (PointType.DATA, idx_coords[0]))
+            lambda idx_coords: (idx_coords[1], (DATA, idx_coords[0]))
         )
         query_rdd = query_rdd.map(
-            lambda idx_coords: (idx_coords[1], (PointType.QUERY, idx_coords[0]))
+            lambda idx_coords: (idx_coords[1], (QUERY, idx_coords[0]))
         )
         rdd = data_rdd.union(query_rdd)
 
@@ -235,5 +243,5 @@ class Countifs(Algorithm):
             rdd = self.next_step(rdd)
 
         rdd = self.results_for_label(rdd)
-        rdd = self.results_for_query(rdd)
+        rdd = self.results_for_query(rdd).sortByKey()
         return rdd
