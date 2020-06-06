@@ -9,6 +9,13 @@ from pyspark import RDD, Broadcast
 
 
 class SampleAndAssignBuckets(Step):
+    """
+    IN: point coords
+    OUT: (point bucket index, point coords), where
+        buckets are created from randomly sampled points, and are ordered
+        (bucket with higher index contains elements with higher values)
+    """
+
     p = 0.1
     """ Default value for probability of sampling a point to be a bucket key """
 
@@ -53,6 +60,11 @@ class SampleAndAssignBuckets(Step):
 
 
 class SortByKeyAndValue(Step):
+    """
+    IN: (point bucket index, point coords) in random order
+    OUT: point coords in sorted order (by bucket index, and within a bucket by coords)
+    """
+
     @staticmethod
     def group(rdd: RDD) -> RDD:  # type: ignore
         rdd = rdd.groupByKey().sortByKey()
@@ -68,6 +80,19 @@ class SortByKeyAndValue(Step):
 
 
 class TeraSort(Algorithm):
+    """
+    Implements TeraSort - a minimal mapreduce algorithm for sorting data.
+
+    Input:
+
+        - `rdd`: RDD[point], where each point is a tuple with `n_dim` elements
+        - `n_dim`: int - number of dimensions (coordinates)
+
+    Output:
+
+        - `results_rdd`: sorted `rdd`
+
+    """
     __steps__ = {
         "assign_buckets": SampleAndAssignBuckets,
         "sort": SortByKeyAndValue,
