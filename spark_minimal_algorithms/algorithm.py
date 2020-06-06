@@ -12,24 +12,26 @@ class Step(ABC):
         super().__init__()
 
     @staticmethod
-    def group(rdd: RDD) -> RDD:
+    def group(rdd: RDD, **kwargs: Any) -> RDD:
         return rdd.groupByKey()
 
     @staticmethod
-    def emit_by_group(group_key: Any, group_items: Iterable[Any]) -> Optional[Any]:
+    def emit_by_group(
+        group_key: Any, group_items: Iterable[Any], **kwargs: Any
+    ) -> Optional[Any]:
         return None
 
     @staticmethod
-    def broadcast(emitted_items: List[Any]) -> Optional[Any]:
+    def broadcast(emitted_items: List[Any], **kwargs: Any) -> Optional[Any]:
         return None
 
     @abstractstaticmethod
     def step(
-        group_key: Any, group_items: Iterable[Any], broadcast: Broadcast
+        group_key: Any, group_items: Iterable[Any], broadcast: Broadcast, **kwargs: Any
     ) -> Iterable[Any]:
         pass
 
-    def __call__(self, rdd: RDD) -> RDD:
+    def __call__(self, rdd: RDD, **kwargs: Any) -> RDD:
         """
         Performs a single step of an algorithm.
         """
@@ -38,21 +40,21 @@ class Step(ABC):
 
         step_cls: Type[Step] = self.__class__
         rdd = step_cls.group(
-            rdd
+            rdd, **kwargs
         ).cache()  # cache because we use it twice (emit and step)
 
         def unwrap_emit(kv: Tuple[Any, Iterable[Any]]) -> Optional[Tuple[Any, Any]]:
             k, v = kv
-            new_v = step_cls.emit_by_group(k, v)
+            new_v = step_cls.emit_by_group(k, v, **kwargs)
             return new_v
 
         emitted = list(rdd.map(unwrap_emit).collect())
-        to_broadcast = step_cls.broadcast(emitted)
+        to_broadcast = step_cls.broadcast(emitted, **kwargs)
         broadcast: Broadcast = self._sc.broadcast(to_broadcast)
 
         def unwrap_step(kv: Tuple[Any, Iterable[Any]]) -> Iterable[Any]:
             k, v = kv
-            for new_v in step_cls.step(k, v, broadcast):
+            for new_v in step_cls.step(k, v, broadcast, **kwargs):
                 yield new_v
 
         rdd = rdd.flatMap(unwrap_step)
@@ -72,12 +74,15 @@ class Algorithm(ABC):
 
         super().__init__()
 
+    @property
+    def n_partitions(self) -> int:
+        return self._n_partitions
+
     @abstractmethod
-    def run(self, **kwargs: Dict[str, Any]) -> RDD:
+    def run(self, **kwargs: Any) -> RDD:
         pass
 
-    def __call__(self, **kwargs: Dict[str, Any]) -> RDD:
-        # todo: add support for positional arguments
+    def __call__(self, **kwargs: Any) -> RDD:
         for arg_name, arg in kwargs.items():
             if isinstance(arg, RDD) and arg.getNumPartitions() != self._n_partitions:
                 kwargs[arg_name] = arg.repartition(self._n_partitions)

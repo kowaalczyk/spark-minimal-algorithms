@@ -52,7 +52,7 @@ class CountifsInitialStep(Step):
             yield idx, point
 
     @staticmethod
-    def group(rdd: RDD) -> RDD:
+    def group(rdd: RDD) -> RDD:  # type: ignore
         # sort by values - todo: consider using custom terasort implementation
         cls = CountifsInitialStep
         rdd = rdd.map(cls.select_key).sortByKey().map(cls.unselect_key)
@@ -60,11 +60,11 @@ class CountifsInitialStep(Step):
         return rdd
 
     @staticmethod
-    def emit_by_group(group_key: int, group_items: Iterable[Any]) -> Optional[Any]:
+    def emit_by_group(group_key: int, group_items: Iterable[Any]) -> Optional[Any]:  # type: ignore
         return group_key, len(list(group_items))
 
     @staticmethod
-    def broadcast(
+    def broadcast(  # type: ignore
         emitted_items: List[Tuple[int, int]]
     ) -> Dict[str, Union[str, List[int]]]:
         parition_counts = [
