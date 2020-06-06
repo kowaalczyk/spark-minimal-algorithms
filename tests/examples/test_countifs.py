@@ -1,4 +1,5 @@
 from typing import Dict, List, Tuple, Any
+import random
 
 import pytest
 from pyspark import SparkContext, RDD
@@ -11,6 +12,8 @@ from spark_minimal_algorithms.examples.countifs import (
     CountifsResultsForQuery,
     Countifs,
 )
+
+random.seed(42)
 
 
 @pytest.mark.parametrize(
@@ -127,6 +130,7 @@ def test_algorithm_execution_1d(spark_context, n_partitions, test_case):
     countifs = Countifs(spark_context, n_partitions)
     result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=1).collect()
 
+    assert len(result) == len(expected_result)
     assert result == expected_result
 
 
@@ -167,6 +171,7 @@ def test_algorithm_execution_2d(spark_context, n_partitions, test_case):
     countifs = Countifs(spark_context, n_partitions)
     result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=2).collect()
 
+    assert len(result) == len(expected_result)
     assert result == expected_result
 
 
@@ -192,4 +197,140 @@ def test_algorithm_execution_3d(spark_context, n_partitions, test_case):
     countifs = Countifs(spark_context, n_partitions)
     result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=3).collect()
 
+    assert len(result) == len(expected_result)
+    assert result == expected_result
+
+
+def random_test_case(n_data_points: int, n_query_points: int, n_dim: int):
+    min_coord_value = 100
+    max_coord_value = 100 + 100 * (n_query_points + n_data_points)
+
+    def make_query_point(i):
+        return tuple(min_coord_value + 2 * i for _ in range(n_dim))
+
+    query_points = [make_query_point(i) for i in range(n_query_points)]
+
+    data_points_per_query_point = n_data_points // n_query_points
+    data_points_rest = n_data_points - n_query_points * data_points_per_query_point
+
+    def make_data_point(min_val, max_val, global_max_val):
+        """
+        One of the coords will be between (min_val, max_val),
+        rest of the coords will be between (min_val, global_max_val)
+        """
+        random_coord = random.randint(0, n_dim - 1)
+        coords = [random.randint(min_val, global_max_val) for _ in range(n_dim)]
+        coords[random_coord] = random.randint(min_val, max_val)
+        return tuple(coords)
+
+    # start with random data points which are smaller than all query points
+    data_points = [
+        make_data_point(0, min_coord_value, max_coord_value)
+        for _ in range(data_points_rest)
+    ]
+    for i in range(n_query_points):
+        # add data point in L-shape, with all dimensions > query point dimensions
+        data_points_for_query = [
+            make_data_point(
+                min_coord_value + 2 * i + 1,
+                min_coord_value + 2 * i + 1,
+                max_coord_value,
+            )
+            for _ in range(data_points_per_query_point)
+        ]
+        data_points += data_points_for_query
+
+    random.shuffle(data_points)
+
+    expected_result = [
+        (i, data_points_per_query_point * (n_query_points - i))
+        for i in range(n_query_points)
+    ]
+    assert expected_result[-1] == (n_query_points - 1, data_points_per_query_point)
+    assert (
+        len(data_points) == n_data_points
+    ), f"got: {len(data_points)}, expected: {n_data_points}"
+
+    return {
+        "data_points": data_points,
+        "query_points": query_points,
+        "expected_result": expected_result,
+    }
+
+
+LONG_N_PARTITIONS = [1, 2, 3, 4, 8, 16]
+
+
+RANDOM_TESTS_1D = [
+    random_test_case(10, 10, 1),
+    random_test_case(1_000, 10, 1),
+    random_test_case(1_000, 100, 1),
+    random_test_case(1_000, 1_000, 1),
+    random_test_case(100_000, 10, 1),
+    random_test_case(100_000, 100, 1),
+    random_test_case(100_000, 1_000, 1),
+    random_test_case(100_000, 10_000, 1),
+]
+
+
+@pytest.mark.long
+@pytest.mark.parametrize("n_partitions", LONG_N_PARTITIONS)
+@pytest.mark.parametrize("test_case", RANDOM_TESTS_1D)
+def test_algorithm_performance_1d(spark_context, n_partitions, test_case):
+    data_rdd, query_rdd, expected_result = prepare_test_case(spark_context, test_case)
+
+    countifs = Countifs(spark_context, n_partitions)
+    result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=1).collect()
+
+    assert len(result) == len(expected_result)
+    assert result == expected_result
+
+
+RANDOM_TESTS_2D = [
+    random_test_case(10, 10, 2),
+    random_test_case(1_000, 10, 2),
+    random_test_case(1_000, 100, 2),
+    random_test_case(1_000, 1_000, 2),
+    random_test_case(100_000, 10, 2),
+    random_test_case(100_000, 100, 2),
+    random_test_case(100_000, 1_000, 2),
+    random_test_case(100_000, 10_000, 2),
+]
+
+
+@pytest.mark.long
+@pytest.mark.parametrize("n_partitions", LONG_N_PARTITIONS)
+@pytest.mark.parametrize("test_case", RANDOM_TESTS_2D)
+def test_algorithm_performance_2d(spark_context, n_partitions, test_case):
+    data_rdd, query_rdd, expected_result = prepare_test_case(spark_context, test_case)
+
+    countifs = Countifs(spark_context, n_partitions)
+    result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=2).collect()
+
+    assert len(result) == len(expected_result)
+    assert result == expected_result
+
+
+RANDOM_TESTS_3D = [
+    random_test_case(10, 10, 3),
+    random_test_case(1_000, 10, 3),
+    random_test_case(1_000, 100, 3),
+    random_test_case(1_000, 1_000, 3),
+    random_test_case(100_000, 10, 3),
+    random_test_case(100_000, 100, 3),
+    random_test_case(100_000, 1_000, 3),
+    random_test_case(100_000, 10_000, 3),
+]
+
+
+@pytest.mark.long
+@pytest.mark.parametrize("n_partitions", LONG_N_PARTITIONS)
+@pytest.mark.parametrize("test_case", RANDOM_TESTS_3D)
+def test_algorithm_performance_3d(spark_context, n_partitions, test_case):
+    data_rdd, query_rdd, expected_result = prepare_test_case(spark_context, test_case)
+
+    countifs = Countifs(spark_context, n_partitions)
+    result = countifs(data_rdd=data_rdd, query_rdd=query_rdd, n_dim=3).collect()
+
+    assert len(result) == len(expected_result)
     assert result == expected_result
