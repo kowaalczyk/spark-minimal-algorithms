@@ -6,10 +6,10 @@ from pyspark import SparkContext, RDD
 
 from spark_minimal_algorithms.algorithm import Step, Algorithm
 from spark_minimal_algorithms.examples.countifs import (
-    CountifsInitialStep,
-    CountifsNextStep,
-    CountifsResultsForLabel,
-    CountifsResultsForQuery,
+    SortAndAssignLabel,
+    AssignNestedLabel,
+    GetResultsByLabel,
+    AggregateResultsByQuery,
     Countifs,
 )
 
@@ -19,10 +19,10 @@ random.seed(42)
 @pytest.mark.parametrize(
     "cls",
     [
-        CountifsInitialStep,
-        CountifsNextStep,
-        CountifsResultsForLabel,
-        CountifsResultsForQuery,
+        SortAndAssignLabel,
+        AssignNestedLabel,
+        GetResultsByLabel,
+        AggregateResultsByQuery,
     ],
 )
 @pytest.mark.parametrize("n_partitions", [1])
@@ -40,21 +40,21 @@ def test_algorithm_creation(spark_context, n_partitions):
     assert isinstance(instance, Algorithm)
     assert instance._n_partitions == n_partitions
 
-    assert hasattr(instance, "first_step")
-    assert type(instance.first_step) == CountifsInitialStep
-    assert instance.first_step._n_partitions == n_partitions
+    assert hasattr(instance, "sort_and_assign_label")
+    assert type(instance.sort_and_assign_label) == SortAndAssignLabel
+    assert instance.sort_and_assign_label._n_partitions == n_partitions
 
-    assert hasattr(instance, "next_step")
-    assert type(instance.next_step) == CountifsNextStep
-    assert instance.next_step._n_partitions == n_partitions
+    assert hasattr(instance, "assign_nested_label")
+    assert type(instance.assign_nested_label) == AssignNestedLabel
+    assert instance.assign_nested_label._n_partitions == n_partitions
 
-    assert hasattr(instance, "results_for_label")
-    assert type(instance.results_for_label) == CountifsResultsForLabel
-    assert instance.results_for_label._n_partitions == n_partitions
+    assert hasattr(instance, "get_results_by_label")
+    assert type(instance.get_results_by_label) == GetResultsByLabel
+    assert instance.get_results_by_label._n_partitions == n_partitions
 
-    assert hasattr(instance, "results_for_query")
-    assert type(instance.results_for_query) == CountifsResultsForQuery
-    assert instance.results_for_query._n_partitions == n_partitions
+    assert hasattr(instance, "aggregate_results_by_query")
+    assert type(instance.aggregate_results_by_query) == AggregateResultsByQuery
+    assert instance.aggregate_results_by_query._n_partitions == n_partitions
 
 
 TESTS_1D = [

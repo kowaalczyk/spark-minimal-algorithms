@@ -17,7 +17,7 @@ def _get_format_str(n_elements: int) -> str:
     return binary_format_str
 
 
-class CountifsInitialStep(Step):
+class SortAndAssignLabel(Step):
     """
     IN: (point coords, point type info) where:
 
@@ -54,7 +54,7 @@ class CountifsInitialStep(Step):
     @staticmethod
     def group(rdd: RDD) -> RDD:  # type: ignore
         # sort by values - todo: consider using custom terasort implementation
-        cls = CountifsInitialStep
+        cls = SortAndAssignLabel
         rdd = rdd.map(cls.select_key).sortByKey().map(cls.unselect_key)
         rdd = rdd.mapPartitionsWithIndex(cls.extract_partition_idx).groupByKey()
         return rdd
@@ -114,7 +114,7 @@ class CountifsInitialStep(Step):
                             yield label[:prefix_len], type_info
 
 
-class CountifsNextStep(Step):
+class AssignNestedLabel(Step):
     """
     IN: (label, collection of points with label)
 
@@ -135,7 +135,7 @@ class CountifsNextStep(Step):
         group_items: Iterable[Any],
         broadcast: Broadcast,
     ) -> Iterable[Any]:
-        points = sorted(group_items, key=CountifsNextStep.first_coord_and_point_type)
+        points = sorted(group_items, key=AssignNestedLabel.first_coord_and_point_type)
         label_format_str = _get_format_str(len(points))
         old_label = group_key
 
@@ -166,7 +166,7 @@ class CountifsNextStep(Step):
                             yield (old_label, new_label[:prefix_len]), type_info
 
 
-class CountifsResultsForLabel(Step):
+class GetResultsByLabel(Step):
     """
     IN: (label, points with this label)
 
@@ -190,7 +190,7 @@ class CountifsResultsForLabel(Step):
             yield query_point_idx, n_data_points
 
 
-class CountifsResultsForQuery(Step):
+class AggregateResultsByQuery(Step):
     """
     IN: (query point index, collection of results for this query point for various labels)
 
@@ -221,10 +221,10 @@ class Countifs(Algorithm):
     """
 
     __steps__ = {
-        "first_step": CountifsInitialStep,
-        "next_step": CountifsNextStep,
-        "results_for_label": CountifsResultsForLabel,
-        "results_for_query": CountifsResultsForQuery,
+        "sort_and_assign_label": SortAndAssignLabel,
+        "assign_nested_label": AssignNestedLabel,
+        "get_results_by_label": GetResultsByLabel,
+        "aggregate_results_by_query": AggregateResultsByQuery,
     }
 
     def run(self, data_rdd: RDD, query_rdd: RDD, n_dim: int) -> RDD:  # type: ignore
@@ -238,10 +238,10 @@ class Countifs(Algorithm):
         )
         rdd = data_rdd.union(query_rdd)
 
-        rdd = self.first_step(rdd)  # type: ignore
+        rdd = self.sort_and_assign_label(rdd)  # type: ignore
         for _ in range(n_dim - 1):
-            rdd = self.next_step(rdd)  # type: ignore
+            rdd = self.assign_nested_label(rdd)  # type: ignore
 
-        rdd = empty_result_rdd.union(self.results_for_label(rdd))  # type: ignore
-        rdd = self.results_for_query(rdd).sortByKey()  # type: ignore
+        rdd = empty_result_rdd.union(self.get_results_by_label(rdd))  # type: ignore
+        rdd = self.aggregate_results_by_query(rdd).sortByKey()  # type: ignore
         return rdd

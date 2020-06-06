@@ -8,7 +8,7 @@ from spark_minimal_algorithms.algorithm import Step, Algorithm
 from pyspark import RDD, Broadcast
 
 
-class TeraSortFirstRound(Step):
+class SampleAndAssignBuckets(Step):
     p = 0.1
     """ Default value for probability of sampling a point to be a bucket key """
 
@@ -21,13 +21,13 @@ class TeraSortFirstRound(Step):
 
     @staticmethod
     def group(rdd: RDD, **kwargs: Any) -> RDD:
-        rdd = rdd.mapPartitionsWithIndex(TeraSortFirstRound.extract_idx).groupByKey()
+        rdd = rdd.mapPartitionsWithIndex(SampleAndAssignBuckets.extract_idx).groupByKey()
         return rdd
 
     @staticmethod
     def emit_by_group(group_key: int, group_items: Iterable[Any], **kwargs: Any) -> Any:
         samples = list()
-        p: float = kwargs.get("p", TeraSortFirstRound.p)
+        p: float = kwargs.get("p", SampleAndAssignBuckets.p)
         for point in group_items:
             if random.random() < p:
                 samples.append(point)
@@ -52,7 +52,7 @@ class TeraSortFirstRound(Step):
             yield point_bucket, point
 
 
-class TeraSortFinalRound(Step):
+class SortByKeyAndValue(Step):
     @staticmethod
     def group(rdd: RDD) -> RDD:  # type: ignore
         rdd = rdd.groupByKey().sortByKey()
@@ -69,8 +69,8 @@ class TeraSortFinalRound(Step):
 
 class TeraSort(Algorithm):
     __steps__ = {
-        "assign_buckets": TeraSortFirstRound,
-        "sort": TeraSortFinalRound,
+        "assign_buckets": SampleAndAssignBuckets,
+        "sort": SortByKeyAndValue,
     }
 
     def run(self, rdd: RDD, n_dim: int) -> RDD:  # type: ignore
