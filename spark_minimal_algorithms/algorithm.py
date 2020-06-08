@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod, abstractstaticmethod
-from typing import Any, Optional, Iterable, Type, List, Tuple, Dict
+from typing import Any, Optional, Iterable, Type, List, Tuple, Dict, Union
 
 from pyspark import SparkContext, RDD
 from pyspark.broadcast import Broadcast
@@ -124,7 +124,7 @@ class Step(ABC):
             new_v = step_cls.emit_by_group(k, v, **kwargs)
             return new_v
 
-        emitted = list(rdd.map(unwrap_emit).collect())
+        emitted = list(rdd.map(unwrap_emit, preservesPartitioning=True).collect())
         to_broadcast = step_cls.broadcast(emitted, **kwargs)
         broadcast: Broadcast = self._sc.broadcast(to_broadcast)
 
@@ -133,7 +133,7 @@ class Step(ABC):
             for new_v in step_cls.step(k, v, broadcast, **kwargs):
                 yield new_v
 
-        rdd = rdd.flatMap(unwrap_step)
+        rdd = rdd.flatMap(unwrap_step, preservesPartitioning=True)
         return rdd
 
 
@@ -190,7 +190,7 @@ class Algorithm(ABC):
     ```
     """
 
-    __steps__: Dict[str, Type[Step]] = dict()
+    __steps__: Dict[str, Union[Type[Step], Type["Algorithm"]]] = dict()
 
     def __init__(self, sc: SparkContext, n_partitions: int):
         """
