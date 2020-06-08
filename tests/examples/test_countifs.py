@@ -16,12 +16,7 @@ random.seed(42)
 
 
 @pytest.mark.parametrize(
-    "cls",
-    [
-        TeraSortWithLabels,
-        GetResultsByLabel,
-        AggregateResultsByQuery,
-    ],
+    "cls", [TeraSortWithLabels, GetResultsByLabel, AggregateResultsByQuery,],
 )
 @pytest.mark.parametrize("n_partitions", [1])
 def test_step_creation(cls, spark_context, n_partitions):
@@ -53,16 +48,18 @@ def test_algorithm_creation(spark_context, n_partitions):
 
 @pytest.mark.parametrize("n_partitions", [1, 2, 3, 4])
 def test_tera_sort_label_assignment_1d(spark_context, n_partitions):
-    rdd = spark_context.parallelize([
-        ((), (1,), (0, 0)),  # D0: data at x = 1 with empty label
-        ((), (1,), (1, 0)),  # Q0: query at x = 1 with empty label
-        ((), (2,), (0, 1)),  # D1: data at x = 2 with empty label
-        ((), (2,), (1, 1)),  # Q1: query at x = 2 with empty label
-    ])
+    rdd = spark_context.parallelize(
+        [
+            ((), (1,), (0, 0)),  # D0: data at x = 1 with empty label
+            ((), (1,), (1, 0)),  # Q0: query at x = 1 with empty label
+            ((), (2,), (0, 1)),  # D1: data at x = 2 with empty label
+            ((), (2,), (1, 1)),  # Q1: query at x = 2 with empty label
+        ]
+    )
     # Q0, D1 is the only pair of results that matches the COUNTIF criteria
     expected_result = [
-        (((), ''), (1, 0)),
-        (((), ''), (0, 1)),
+        (((), ""), (1, 0)),
+        (((), ""), (0, 1)),
     ]
 
     algorithm = TeraSortWithLabels(spark_context, n_partitions)
@@ -73,18 +70,20 @@ def test_tera_sort_label_assignment_1d(spark_context, n_partitions):
 
 @pytest.mark.parametrize("n_partitions", [1, 2, 3, 4])
 def test_tera_sort_label_assignment_2d_round_1_case_1(spark_context, n_partitions):
-    rdd = spark_context.parallelize([
-        ((), (3, 6), (0, 0)),  # D0
-        ((), (4, 2), (0, 1)),  # D1
-        ((), (0, 5), (1, 0)),  # Q0
-        ((), (7, 1), (1, 1)),  # Q1
-    ])
+    rdd = spark_context.parallelize(
+        [
+            ((), (3, 6), (0, 0)),  # D0
+            ((), (4, 2), (0, 1)),  # D1
+            ((), (0, 5), (1, 0)),  # Q0
+            ((), (7, 1), (1, 1)),  # Q1
+        ]
+    )
     # after 1st dimension, for Q0 both D1 and D2 are feasible
     expected_result_1st_round = [
-        (((), ''), (5,), (1, 0)),
-        (((), '0'), (5,), (1, 0)),
-        (((), '0'), (6,), (0, 0)),
-        (((), ''), (2,), (0, 1)),
+        (((), ""), (5,), (1, 0)),
+        (((), "0"), (5,), (1, 0)),
+        (((), "0"), (6,), (0, 0)),
+        (((), ""), (2,), (0, 1)),
     ]
 
     algorithm = TeraSortWithLabels(spark_context, n_partitions)
@@ -95,16 +94,18 @@ def test_tera_sort_label_assignment_2d_round_1_case_1(spark_context, n_partition
 
 @pytest.mark.parametrize("n_partitions", [1, 2, 3, 4])
 def test_tera_sort_label_assignment_2d_round_2_case_1(spark_context, n_partitions):
-    rdd_after_1st_round = spark_context.parallelize([
-        (((), ''), (5,), (1, 0)),  # Q0
-        (((), '0'), (5,), (1, 0)),  # Q0
-        (((), '0'), (6,), (0, 0)),  # D0
-        (((), ''), (2,), (0, 1)),  # D1
-    ])
+    rdd_after_1st_round = spark_context.parallelize(
+        [
+            (((), ""), (5,), (1, 0)),  # Q0
+            (((), "0"), (5,), (1, 0)),  # Q0
+            (((), "0"), (6,), (0, 0)),  # D0
+            (((), ""), (2,), (0, 1)),  # D1
+        ]
+    )
     # after 1st dimension, for Q0 both D1 and D2 are feasible
     expected_result_2nd_round = [
-        ((((), '0'), ''), (1, 0)),
-        ((((), '0'), ''), (0, 0)),
+        ((((), "0"), ""), (1, 0)),
+        ((((), "0"), ""), (0, 0)),
     ]
 
     algorithm = TeraSortWithLabels(spark_context, n_partitions)
@@ -117,32 +118,34 @@ def test_tera_sort_label_assignment_2d_round_2_case_1(spark_context, n_partition
 def test_tera_sort_label_assignment_2d_round_1_case_2(spark_context, n_partitions):
     # 'data_points': [(103, 480), (105, 1771), (1178, 101), (1243, 107)],
     # 'query_points': [(100, 100), (102, 102), (104, 104), (106, 106)]
-    rdd = spark_context.parallelize([
-        ((), (1178, 101), (0, 2)),
-        ((), (103, 480), (0, 0)),
-        ((), (105, 1771), (0, 1)),
-        ((), (1243, 107), (0, 3)),
-        ((), (104, 104), (1, 2)),
-        ((), (100, 100), (1, 0)),
-        ((), (102, 102), (1, 1)),
-        ((), (106, 106), (1, 3))
-    ])
+    rdd = spark_context.parallelize(
+        [
+            ((), (1178, 101), (0, 2)),
+            ((), (103, 480), (0, 0)),
+            ((), (105, 1771), (0, 1)),
+            ((), (1243, 107), (0, 3)),
+            ((), (104, 104), (1, 2)),
+            ((), (100, 100), (1, 0)),
+            ((), (102, 102), (1, 1)),
+            ((), (106, 106), (1, 3)),
+        ]
+    )
     # after 1st dimension, for Q0 both D1 and D2 are feasible
     expected_result_1st_round = [
-        (((), ''), (100,), (1, 0)),
-        (((), '0'), (100,), (1, 0)),
-        (((), '00'), (100,), (1, 0)),
-        (((), ''), (102,), (1, 1)),
-        (((), '0'), (102,), (1, 1)),
-        (((), '0'), (480,), (0, 0)),
-        (((), ''), (104,), (1, 2)),
-        (((), ''), (1771,), (0, 1)),
-        (((), '1'), (106,), (1, 3)),
-        (((), ''), (101,), (0, 2)),
-        (((), '1'), (101,), (0, 2)),
-        (((), ''), (107,), (0, 3)),
-        (((), '1'), (107,), (0, 3)),
-        (((), '11'), (107,), (0, 3)),
+        (((), ""), (100,), (1, 0)),
+        (((), "0"), (100,), (1, 0)),
+        (((), "00"), (100,), (1, 0)),
+        (((), ""), (102,), (1, 1)),
+        (((), "0"), (102,), (1, 1)),
+        (((), "0"), (480,), (0, 0)),
+        (((), ""), (104,), (1, 2)),
+        (((), ""), (1771,), (0, 1)),
+        (((), "1"), (106,), (1, 3)),
+        (((), ""), (101,), (0, 2)),
+        (((), "1"), (101,), (0, 2)),
+        (((), ""), (107,), (0, 3)),
+        (((), "1"), (107,), (0, 3)),
+        (((), "11"), (107,), (0, 3)),
     ]
 
     algorithm = TeraSortWithLabels(spark_context, n_partitions)
@@ -153,41 +156,43 @@ def test_tera_sort_label_assignment_2d_round_1_case_2(spark_context, n_partition
 
 @pytest.mark.parametrize("n_partitions", [1, 2, 3, 4])
 def test_tera_sort_label_assignment_2d_round_2_case_2(spark_context, n_partitions):
-    rdd_after_1st_round = spark_context.parallelize([
-        (((), ''), (100,), (1, 0)),
-        (((), '0'), (100,), (1, 0)),
-        (((), '00'), (100,), (1, 0)),
-        (((), ''), (102,), (1, 1)),
-        (((), '0'), (102,), (1, 1)),
-        (((), '0'), (480,), (0, 0)),
-        (((), ''), (104,), (1, 2)),
-        (((), ''), (1771,), (0, 1)),
-        (((), '1'), (106,), (1, 3)),
-        (((), ''), (101,), (0, 2)),
-        (((), '1'), (101,), (0, 2)),
-        (((), ''), (107,), (0, 3)),
-        (((), '1'), (107,), (0, 3)),
-        (((), '11'), (107,), (0, 3)),
-    ])
+    rdd_after_1st_round = spark_context.parallelize(
+        [
+            (((), ""), (100,), (1, 0)),
+            (((), "0"), (100,), (1, 0)),
+            (((), "00"), (100,), (1, 0)),
+            (((), ""), (102,), (1, 1)),
+            (((), "0"), (102,), (1, 1)),
+            (((), "0"), (480,), (0, 0)),
+            (((), ""), (104,), (1, 2)),
+            (((), ""), (1771,), (0, 1)),
+            (((), "1"), (106,), (1, 3)),
+            (((), ""), (101,), (0, 2)),
+            (((), "1"), (101,), (0, 2)),
+            (((), ""), (107,), (0, 3)),
+            (((), "1"), (107,), (0, 3)),
+            (((), "11"), (107,), (0, 3)),
+        ]
+    )
     # after 1st dimension, for Q0 both D1 and D2 are feasible
     expected_result_2nd_round = [
-        ((((), ''), ''), (1, 0)),
-        ((((), ''), '0'), (1, 0)),
-        ((((), ''), '00'), (1, 0)),
-        ((((), ''), '00'), (0, 2)),
-        ((((), ''), ''), (1, 1)),
-        ((((), ''), '01'), (1, 1)),
-        ((((), ''), ''), (1, 2)),
-        ((((), ''), ''), (0, 3)),
-        ((((), ''), ''), (0, 1)),
-        ((((), ''), '10'), (0, 1)),
-        ((((), '0'), ''), (1, 0)),
-        ((((), '0'), '0'), (1, 0)),
-        ((((), '0'), ''), (1, 1)),
-        ((((), '0'), ''), (0, 0)),
-        ((((), '00'), ''), (1, 0)),
-        ((((), '1'), ''), (1, 3)),
-        ((((), '1'), ''), (0, 3)),
+        ((((), ""), ""), (1, 0)),
+        ((((), ""), "0"), (1, 0)),
+        ((((), ""), "00"), (1, 0)),
+        ((((), ""), "00"), (0, 2)),
+        ((((), ""), ""), (1, 1)),
+        ((((), ""), "01"), (1, 1)),
+        ((((), ""), ""), (1, 2)),
+        ((((), ""), ""), (0, 3)),
+        ((((), ""), ""), (0, 1)),
+        ((((), ""), "10"), (0, 1)),
+        ((((), "0"), ""), (1, 0)),
+        ((((), "0"), "0"), (1, 0)),
+        ((((), "0"), ""), (1, 1)),
+        ((((), "0"), ""), (0, 0)),
+        ((((), "00"), ""), (1, 0)),
+        ((((), "1"), ""), (1, 3)),
+        ((((), "1"), ""), (0, 3)),
     ]
 
     algorithm = TeraSortWithLabels(spark_context, n_partitions)

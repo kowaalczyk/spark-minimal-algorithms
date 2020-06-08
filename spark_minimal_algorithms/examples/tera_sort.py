@@ -58,7 +58,9 @@ class SampleAndAssignBuckets(Step):
     def step(  # type: ignore
         group_key: int, group_items: Iterable[Any], broadcast: Broadcast, **kwargs: Any
     ) -> Iterable[Tuple[int, Any]]:
-        key_func: Callable[[Tuple[Any]], Tuple[Any]] = kwargs.get("key_func", lambda x: x)
+        key_func: Callable[[Tuple[Any]], Tuple[Any]] = kwargs.get(
+            "key_func", lambda x: x
+        )
         for point in group_items:
             point_key = key_func(point)
             point_bucket = bisect_left(broadcast.value, point_key)
@@ -80,7 +82,9 @@ class SortByKeyAndValue(Step):
     def step(  # type: ignore
         group_key: int, group_items: Iterable[Any], broadcast: Broadcast, **kwargs: Any
     ) -> Iterable[Any]:
-        key_func: Callable[[Tuple[Any]], Tuple[Any]] = kwargs.get("key_func", lambda x: x)
+        key_func: Callable[[Tuple[Any]], Tuple[Any]] = kwargs.get(
+            "key_func", lambda x: x
+        )
         sorted_points = sorted(group_items, key=key_func)
         for point in sorted_points:
             yield point
@@ -99,6 +103,7 @@ class TeraSort(Algorithm):
         - `results_rdd`: sorted `rdd`
 
     """
+
     __steps__ = {
         "assign_buckets": SampleAndAssignBuckets,
         "sort": SortByKeyAndValue,

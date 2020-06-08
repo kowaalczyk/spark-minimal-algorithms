@@ -33,7 +33,9 @@ class SortAndAssignLabels(Step):
     """
 
     @staticmethod
-    def _sort_within_partition(bucket_and_points: Tuple[int, Iterable[Any]]) -> Tuple[int, Iterable[Any]]:
+    def _sort_within_partition(
+        bucket_and_points: Tuple[int, Iterable[Any]]
+    ) -> Tuple[int, Iterable[Any]]:
         bucket, points = bucket_and_points
         points = sorted(points, key=_label_first_coord_and_type)
         return bucket, points
@@ -41,9 +43,9 @@ class SortAndAssignLabels(Step):
     @staticmethod
     def group(rdd: RDD) -> RDD:  # type: ignore
         rdd = rdd.groupByKey().sortByKey()
-        rdd = rdd.map(SortAndAssignLabels._sort_within_partition, preservesPartitioning=True)
-        # for k, v in rdd.collect():  # todo: remove debug
-        #     print(f"{k}: {list(v)}")
+        rdd = rdd.map(
+            SortAndAssignLabels._sort_within_partition, preservesPartitioning=True
+        )
         return rdd
 
     @staticmethod
@@ -69,21 +71,32 @@ class SortAndAssignLabels(Step):
                 last_label = label
                 n_points_for_last_label = 1
 
-        return bucket_idx, (first_label, n_points_for_first_label), (last_label, n_points_for_last_label)
+        return (
+            bucket_idx,
+            (first_label, n_points_for_first_label),
+            (last_label, n_points_for_last_label),
+        )
 
     @staticmethod
     def broadcast(emitted_items: List[List[Any]]) -> Dict[str, Any]:  # type: ignore
-        bucket_label_counts = sorted(emitted_items, key=lambda bucket_count: bucket_count[0])
-
-        # print(f"bucket_label_counts: {bucket_label_counts}")  # todo: remove debug
+        bucket_label_counts = sorted(
+            emitted_items, key=lambda bucket_count: bucket_count[0]
+        )
 
         previous_label = ()  # empty tuple is never assigned as a label
         previous_count = 0
-        bucket_prefix_counts = dict()  # i => (last label in (i-1)-th bucket, count of points with this label in previous buckets)
-        total_label_counts = dict()  # label => total count of points with this label (only for multi-bucket labels)
+        bucket_prefix_counts = (
+            dict()
+        )  # i => (last label in (i-1)-th bucket, count of points with this label in previous buckets)
+        total_label_counts = (
+            dict()
+        )  # label => total count of points with this label (only for multi-bucket labels)
         for bucket_count in bucket_label_counts:
             bucket_partition_idx = bucket_count[0]
-            bucket_prefix_counts[bucket_partition_idx] = (previous_label, previous_count)
+            bucket_prefix_counts[bucket_partition_idx] = (
+                previous_label,
+                previous_count,
+            )
 
             first_label, first_label_count = bucket_count[1]
             last_label, last_label_count = bucket_count[2]
@@ -104,12 +117,10 @@ class SortAndAssignLabels(Step):
         # after iteration ends, we still need to assign total count for last label
         total_label_counts[previous_label] = previous_count
 
+        # if this is not 1st round, dummy key () has value 0 which needs to be removed
         keys_to_delete = {k for k in total_label_counts if total_label_counts[k] == 0}
         for k in keys_to_delete:
             del total_label_counts[k]
-
-        # print(f"bucket_prefix_counts: {bucket_prefix_counts}")  # todo: remove debug
-        # print(f"total_label_counts: {total_label_counts}")  # todo: remove debug
 
         return {
             "bucket_prefix_count": bucket_prefix_counts,
@@ -144,13 +155,7 @@ class SortAndAssignLabels(Step):
 
         # todo: label format strings for global labels can be pre-computed before broadcast
         # todo: we can probably get rid of few intermediate dicts to save memory
-        label_count: Dict[str, int] = {
-            **global_label_count,
-            **local_label_count
-        }
-        # print(f"Caclulating label in partition: {group_key}")
-        # print(f"available label counts: {label_count}")
-        # print("")
+        label_count: Dict[str, int] = {**global_label_count, **local_label_count}
         label_format_str = {
             label: _get_format_str(n_points_for_label)
             for label, n_points_for_label in label_count.items()
@@ -170,13 +175,13 @@ class SortAndAssignLabels(Step):
                 point_idx_within_label = 1
                 previous_label = old_label
 
-            # print(f"Point {point} (#{idx} in bucket #{bucket_idx}) got label {new_label}")  # todo: remove debug
-
             if t == DATA:
                 for prefix_len in range(len(new_label)):
                     if new_label[prefix_len] == "1":
                         if len(coords) > 1:
-                            yield (old_label, new_label[:prefix_len]), coords[1:], type_info
+                            yield (old_label, new_label[:prefix_len]), coords[
+                                1:
+                            ], type_info
                         else:
                             yield (old_label, new_label[:prefix_len]), type_info
 
@@ -184,7 +189,9 @@ class SortAndAssignLabels(Step):
                 for prefix_len in range(len(new_label)):
                     if new_label[prefix_len] == "0":
                         if len(coords) > 1:
-                            yield (old_label, new_label[:prefix_len]), coords[1:], type_info
+                            yield (old_label, new_label[:prefix_len]), coords[
+                                1:
+                            ], type_info
                         else:
                             yield (old_label, new_label[:prefix_len]), type_info
 

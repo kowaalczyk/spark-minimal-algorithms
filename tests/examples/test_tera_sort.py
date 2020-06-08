@@ -9,7 +9,9 @@ random.seed(42)
 
 
 def create_test_case(
-        n_points: int, n_dim: int, key_func: Callable[[Tuple[Any]], Tuple[Any]] = lambda x: x
+    n_points: int,
+    n_dim: int,
+    key_func: Callable[[Tuple[Any]], Tuple[Any]] = lambda x: x,
 ) -> Tuple[List[Tuple[Any]], List[Tuple[Any]], Callable[[Tuple[Any]], Tuple[Any]]]:
     max_point = 100 * n_points
     points = [
