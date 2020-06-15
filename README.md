@@ -28,7 +28,7 @@ and [RDD Programming Guide](https://spark.apache.org/docs/latest/rdd-programming
 
 Install library:
 ```shell
-pip install git+https://github.com/kowaalczyk/spark-minimal-algorithms.git
+pip install https://github.com/kowaalczyk/spark-minimal-algorithms/releases/download/0.1.0/spark_minimal_algorithms-0.1.0-py3-none-any.whl
 ```
 
 Algorithm documentation contains detailed description of its steps.
