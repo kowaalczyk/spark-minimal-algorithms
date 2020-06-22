@@ -175,7 +175,7 @@ Developer experience:
 ### Development setup
 
 All necessary testing and linting can be run in docker, so you don't need to install
-anythong locally.
+anythong locally (in particular, you don't need to install spark).
 
 After making changes to the code, make sure to re-build the docker image:
 ```shell
@@ -213,3 +213,7 @@ the same settings as in docker (which are the same in CI).
 
 To do this, you need Python 3.7 and [poetry](https://python-poetry.org/) installed.
 Simply run `poetry install` to create a virtual environment and install all dependencies.
+
+To see the detailed spark and poetry setup,
+visit [`kowaalczyk/pyspark-dev` docker repository](https://github.com/kowaalczyk/docker-pyspark-dev),
+which is the base for this development image.
